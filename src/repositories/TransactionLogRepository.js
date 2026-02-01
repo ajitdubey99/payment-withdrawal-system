@@ -11,7 +11,7 @@
 
 const TransactionLog = require('../models/TransactionLog');
 const logger = require('../utils/logger');
-const { TRANSACTION_TYPE, TRANSACTION_STATUS } = require('../constants');
+const { default: mongoose } = require('mongoose');
 
 class TransactionLogRepository {
   /**
@@ -25,20 +25,20 @@ class TransactionLogRepository {
   async create(data, session = null) {
     try {
       const transactionLog = new TransactionLog(data);
-      
+
       if (session) {
         await transactionLog.save({ session });
       } else {
         await transactionLog.save();
       }
-      
+
       logger.info('Transaction log created', {
         logId: transactionLog._id,
         userId: transactionLog.userId,
         type: transactionLog.transactionType,
         amount: transactionLog.getAmount()
       });
-      
+
       return transactionLog;
     } catch (error) {
       logger.error('Error creating transaction log', {
@@ -70,21 +70,21 @@ class TransactionLogRepository {
         startDate,
         endDate
       } = options;
-      
+
       const skip = (page - 1) * limit;
-      
+
       const filter = { userId };
-      
+
       if (transactionType) {
         filter.transactionType = transactionType;
       }
-      
+
       if (startDate || endDate) {
         filter.timestamp = {};
         if (startDate) filter.timestamp.$gte = new Date(startDate);
         if (endDate) filter.timestamp.$lte = new Date(endDate);
       }
-      
+
       const [transactions, total] = await Promise.all([
         TransactionLog.find(filter)
           .sort({ timestamp: -1 })
@@ -93,7 +93,7 @@ class TransactionLogRepository {
           .lean(),
         TransactionLog.countDocuments(filter)
       ]);
-      
+
       return {
         transactions,
         pagination: {
@@ -144,7 +144,7 @@ class TransactionLogRepository {
   async findByType(transactionType, page = 1, limit = 20) {
     try {
       const skip = (page - 1) * limit;
-      
+
       const [transactions, total] = await Promise.all([
         TransactionLog.find({ transactionType })
           .sort({ timestamp: -1 })
@@ -153,7 +153,7 @@ class TransactionLogRepository {
           .lean(),
         TransactionLog.countDocuments({ transactionType })
       ]);
-      
+
       return {
         transactions,
         pagination: {
@@ -182,14 +182,13 @@ class TransactionLogRepository {
    */
   async getStatistics(userId, startDate = null, endDate = null) {
     try {
-      const match = { userId };
-      
+      const match = { userId: new mongoose.Types.ObjectId(userId) };
+
       if (startDate || endDate) {
         match.timestamp = {};
         if (startDate) match.timestamp.$gte = new Date(startDate);
         if (endDate) match.timestamp.$lte = new Date(endDate);
       }
-      
       const stats = await TransactionLog.aggregate([
         { $match: match },
         {
@@ -200,7 +199,7 @@ class TransactionLogRepository {
           }
         }
       ]);
-      
+
       return stats.reduce((acc, stat) => {
         acc[stat._id] = {
           count: stat.count,
