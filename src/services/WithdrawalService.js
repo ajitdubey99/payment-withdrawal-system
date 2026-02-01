@@ -248,7 +248,7 @@ class WithdrawalService {
     const integrityData = {
       userId: withdrawal.userId.toString(),
       amount: withdrawal.getAmount(),
-      destination: withdrawal.destination
+      destination: withdrawal.destination.toObject ? withdrawal.destination.toObject() : withdrawal.destination
     };
 
     const isValid =
