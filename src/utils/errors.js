@@ -1,42 +1,34 @@
 /**
  * Custom Error Classes
  * 
- * Provides specialized error types for different error scenarios.
- * Enables proper error handling and appropriate HTTP status codes.
+ * This file contains all custom error types used in the app.
+ * Instead of throwing generic errors, we throw meaningful ones.
+ * This helps in debugging and sending proper API responses.
  * 
- * Usage:
- *   const { ValidationError, NotFoundError } = require('./utils/errors');
+ * Example:
  *   throw new ValidationError('Invalid input');
  */
 
 const { ERROR_CODES, HTTP_STATUS } = require('../constants');
 
 /**
- * Base application error class
- * All custom errors extend from this class
+ * Base error class for the application
+ * All other errors extend from this
  */
 class AppError extends Error {
-  /**
-   * Creates an application error
-   * 
-   * @param {string} message - Error message
-   * @param {number} statusCode - HTTP status code
-   * @param {string} errorCode - Application error code
-   * @param {Object} details - Additional error details
-   */
   constructor(message, statusCode, errorCode, details = {}) {
     super(message);
     this.name = this.constructor.name;
     this.statusCode = statusCode;
     this.errorCode = errorCode;
     this.details = details;
-    this.isOperational = true;
+    this.isOperational = true; // known and expected errors
     Error.captureStackTrace(this, this.constructor);
   }
 }
 
 /**
- * Validation error for invalid input
+ * Error for invalid user input
  */
 class ValidationError extends AppError {
   constructor(message, details = {}) {
@@ -50,21 +42,21 @@ class ValidationError extends AppError {
 }
 
 /**
- * Resource not found error
+ * Error when resource is not found
  */
 class NotFoundError extends AppError {
   constructor(resource, details = {}) {
     super(
       `${resource} not found`,
       HTTP_STATUS.NOT_FOUND,
-      ERROR_CODES[`${resource.toUpperCase().replace(' ', '_')}_NOT_FOUND`] || ERROR_CODES.NOT_FOUND,
+      ERROR_CODES.NOT_FOUND,
       details
     );
   }
 }
 
 /**
- * Insufficient balance error
+ * Error for low wallet balance
  */
 class InsufficientBalanceError extends AppError {
   constructor(details = {}) {
@@ -78,7 +70,7 @@ class InsufficientBalanceError extends AppError {
 }
 
 /**
- * User account suspended error
+ * Error when user is suspended
  */
 class UserSuspendedError extends AppError {
   constructor(details = {}) {
@@ -92,7 +84,7 @@ class UserSuspendedError extends AppError {
 }
 
 /**
- * User account blocked error
+ * Error when user is blocked
  */
 class UserBlockedError extends AppError {
   constructor(details = {}) {
@@ -106,7 +98,7 @@ class UserBlockedError extends AppError {
 }
 
 /**
- * Duplicate request error (idempotency violation)
+ * Error for duplicate requests
  */
 class DuplicateRequestError extends AppError {
   constructor(details = {}) {
@@ -120,7 +112,7 @@ class DuplicateRequestError extends AppError {
 }
 
 /**
- * Amount out of range error
+ * Error when amount is not in allowed range
  */
 class AmountOutOfRangeError extends AppError {
   constructor(min, max, details = {}) {
@@ -134,7 +126,7 @@ class AmountOutOfRangeError extends AppError {
 }
 
 /**
- * Transaction processing error
+ * Error during transaction failure
  */
 class TransactionError extends AppError {
   constructor(message, details = {}) {
@@ -148,7 +140,7 @@ class TransactionError extends AppError {
 }
 
 /**
- * Concurrency conflict error (optimistic locking failure)
+ * Error for concurrency conflicts
  */
 class ConcurrencyError extends AppError {
   constructor(details = {}) {
@@ -162,7 +154,7 @@ class ConcurrencyError extends AppError {
 }
 
 /**
- * Data integrity check failed error
+ * Error when data integrity check fails
  */
 class IntegrityError extends AppError {
   constructor(details = {}) {
@@ -177,9 +169,6 @@ class IntegrityError extends AppError {
 
 /**
  * Formats error for API response
- * 
- * @param {Error} error - Error object
- * @returns {Object} Formatted error response
  */
 function formatErrorResponse(error) {
   if (error instanceof AppError) {
@@ -193,6 +182,7 @@ function formatErrorResponse(error) {
     };
   }
 
+  // For unknown/unexpected errors
   return {
     success: false,
     error: {
@@ -204,16 +194,10 @@ function formatErrorResponse(error) {
 }
 
 /**
- * Checks if error is operational (expected error)
- * 
- * @param {Error} error - Error to check
- * @returns {boolean} True if operational error
+ * Checks if error is expected (operational)
  */
 function isOperationalError(error) {
-  if (error instanceof AppError) {
-    return error.isOperational;
-  }
-  return false;
+  return error instanceof AppError && error.isOperational;
 }
 
 module.exports = {

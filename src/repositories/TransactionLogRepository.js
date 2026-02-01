@@ -1,10 +1,10 @@
 /**
  * TransactionLog Repository
  * 
- * Data access layer for TransactionLog model.
- * Handles immutable transaction logging for audit trail.
+ * This file handles all DB operations for transaction logs.
+ * It acts as a bridge between service layer and database.
  * 
- * Usage:
+ * Example:
  *   const TransactionLogRepository = require('./repositories/TransactionLogRepository');
  *   await TransactionLogRepository.create(logData);
  */
@@ -15,17 +15,14 @@ const { default: mongoose } = require('mongoose');
 
 class TransactionLogRepository {
   /**
-   * Create transaction log entry
-   * Transaction logs are immutable once created
-   * 
-   * @param {Object} data - Transaction log data
-   * @param {Object} session - MongoDB session for transactions
-   * @returns {Promise<Object>} Created transaction log document
+   * Creates a new transaction log
+   * Logs are permanent and should not be changed
    */
   async create(data, session = null) {
     try {
       const transactionLog = new TransactionLog(data);
 
+      // Save inside transaction if session exists
       if (session) {
         await transactionLog.save({ session });
       } else {
@@ -50,16 +47,7 @@ class TransactionLogRepository {
   }
 
   /**
-   * Find transaction logs by user ID with pagination
-   * 
-   * @param {string} userId - User ID
-   * @param {Object} options - Query options
-   * @param {number} options.page - Page number (default 1)
-   * @param {number} options.limit - Items per page (default 20)
-   * @param {string} options.transactionType - Filter by transaction type
-   * @param {Date} options.startDate - Start date filter
-   * @param {Date} options.endDate - End date filter
-   * @returns {Promise<Object>} Paginated transaction logs
+   * Returns paginated logs for a user
    */
   async findByUserId(userId, options = {}) {
     try {
@@ -72,9 +60,9 @@ class TransactionLogRepository {
       } = options;
 
       const skip = (page - 1) * limit;
-
       const filter = { userId };
 
+      // Optional filters
       if (transactionType) {
         filter.transactionType = transactionType;
       }
@@ -104,7 +92,7 @@ class TransactionLogRepository {
         }
       };
     } catch (error) {
-      logger.error('Error finding transaction logs by user ID', {
+      logger.error('Error finding transaction logs by user', {
         userId,
         options,
         error: error.message
@@ -114,10 +102,8 @@ class TransactionLogRepository {
   }
 
   /**
-   * Find transaction log by reference ID
-   * 
-   * @param {string} referenceId - Reference ID (withdrawal ID, etc.)
-   * @returns {Promise<Array>} Array of transaction logs
+   * Returns logs by reference ID
+   * Example: all logs related to one withdrawal
    */
   async findByReferenceId(referenceId) {
     try {
@@ -125,7 +111,7 @@ class TransactionLogRepository {
         .sort({ timestamp: -1 })
         .lean();
     } catch (error) {
-      logger.error('Error finding transaction logs by reference ID', {
+      logger.error('Error finding logs by reference', {
         referenceId,
         error: error.message
       });
@@ -134,12 +120,7 @@ class TransactionLogRepository {
   }
 
   /**
-   * Find transaction logs by type
-   * 
-   * @param {string} transactionType - Transaction type
-   * @param {number} page - Page number
-   * @param {number} limit - Items per page
-   * @returns {Promise<Object>} Paginated transaction logs
+   * Returns logs filtered by transaction type
    */
   async findByType(transactionType, page = 1, limit = 20) {
     try {
@@ -164,7 +145,7 @@ class TransactionLogRepository {
         }
       };
     } catch (error) {
-      logger.error('Error finding transaction logs by type', {
+      logger.error('Error finding logs by type', {
         transactionType,
         error: error.message
       });
@@ -173,22 +154,20 @@ class TransactionLogRepository {
   }
 
   /**
-   * Get transaction statistics for user
-   * 
-   * @param {string} userId - User ID
-   * @param {Date} startDate - Start date
-   * @param {Date} endDate - End date
-   * @returns {Promise<Object>} Transaction statistics
+   * Returns summary stats for a user
    */
   async getStatistics(userId, startDate = null, endDate = null) {
     try {
-      const match = { userId: new mongoose.Types.ObjectId(userId) };
+      const match = {
+        userId: new mongoose.Types.ObjectId(userId)
+      };
 
       if (startDate || endDate) {
         match.timestamp = {};
         if (startDate) match.timestamp.$gte = new Date(startDate);
         if (endDate) match.timestamp.$lte = new Date(endDate);
       }
+
       const stats = await TransactionLog.aggregate([
         { $match: match },
         {
@@ -208,7 +187,7 @@ class TransactionLogRepository {
         return acc;
       }, {});
     } catch (error) {
-      logger.error('Error getting transaction statistics', {
+      logger.error('Error getting statistics', {
         userId,
         error: error.message
       });
@@ -217,10 +196,7 @@ class TransactionLogRepository {
   }
 
   /**
-   * Count transactions by user
-   * 
-   * @param {string} userId - User ID
-   * @returns {Promise<number>} Total count
+   * Returns total transactions count for a user
    */
   async countByUserId(userId) {
     try {
@@ -235,10 +211,7 @@ class TransactionLogRepository {
   }
 
   /**
-   * Get recent transactions
-   * 
-   * @param {number} limit - Number of transactions to return
-   * @returns {Promise<Array>} Array of recent transactions
+   * Returns latest transactions
    */
   async getRecent(limit = 10) {
     try {

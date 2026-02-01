@@ -1,10 +1,10 @@
 /**
  * Withdrawal Repository
  * 
- * Data access layer for Withdrawal model.
- * Handles withdrawal CRUD operations with idempotency support.
+ * This file talks directly to the database for withdrawals.
+ * It only handles CRUD operations, no business logic.
  * 
- * Usage:
+ * Example:
  *   const WithdrawalRepository = require('./repositories/WithdrawalRepository');
  *   const withdrawal = await WithdrawalRepository.create(data);
  */
@@ -16,69 +16,62 @@ const { WITHDRAWAL_STATUS } = require('../constants');
 
 class WithdrawalRepository {
   /**
-   * Create new withdrawal request
-   * 
-   * @param {Object} data - Withdrawal data
-   * @param {Object} session - MongoDB session for transactions
-   * @returns {Promise<Object>} Created withdrawal document
-   * @throws {DuplicateRequestError} If idempotency key already exists
+   * Creates a new withdrawal record
    */
   async create(data, session = null) {
     try {
       const withdrawal = new Withdrawal(data);
-      
+
       if (session) {
         await withdrawal.save({ session });
       } else {
         await withdrawal.save();
       }
-      
+
       logger.info('Withdrawal created', {
         withdrawalId: withdrawal._id,
         userId: withdrawal.userId,
         amount: withdrawal.getAmount()
       });
-      
+
       return withdrawal;
     } catch (error) {
+      // Handle duplicate idempotency key
       if (error.code === 11000 && error.keyPattern?.idempotencyKey) {
         throw new DuplicateRequestError({
           idempotencyKey: data.idempotencyKey
         });
       }
-      logger.error('Error creating withdrawal', { data, error: error.message });
+
+      logger.error('Error creating withdrawal', {
+        data,
+        error: error.message
+      });
       throw error;
     }
   }
 
   /**
-   * Find withdrawal by ID
-   * 
-   * @param {string} withdrawalId - Withdrawal ID
-   * @param {Object} session - MongoDB session for transactions
-   * @returns {Promise<Object>} Withdrawal document
-   * @throws {NotFoundError} If withdrawal not found
+   * Returns withdrawal by ID
    */
   async findById(withdrawalId, session = null) {
     try {
       const query = Withdrawal.findById(withdrawalId);
-      
-      if (session) {
-        query.session(session);
-      }
-      
+      if (session) query.session(session);
+
       const withdrawal = await query;
-      
+
       if (!withdrawal) {
         throw new NotFoundError('Withdrawal');
       }
-      
+
       return withdrawal;
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw error;
       }
-      logger.error('Error finding withdrawal by ID', {
+
+      logger.error('Error finding withdrawal', {
         withdrawalId,
         error: error.message
       });
@@ -87,16 +80,13 @@ class WithdrawalRepository {
   }
 
   /**
-   * Find withdrawal by idempotency key
-   * 
-   * @param {string} idempotencyKey - Idempotency key
-   * @returns {Promise<Object|null>} Withdrawal document or null
+   * Returns withdrawal using idempotency key
    */
   async findByIdempotencyKey(idempotencyKey) {
     try {
       return await Withdrawal.findOne({ idempotencyKey });
     } catch (error) {
-      logger.error('Error finding withdrawal by idempotency key', {
+      logger.error('Error finding by idempotency key', {
         idempotencyKey,
         error: error.message
       });
@@ -105,17 +95,12 @@ class WithdrawalRepository {
   }
 
   /**
-   * Find withdrawals by user ID with pagination
-   * 
-   * @param {string} userId - User ID
-   * @param {number} page - Page number (default 1)
-   * @param {number} limit - Items per page (default 20)
-   * @returns {Promise<Object>} Paginated withdrawals
+   * Returns withdrawals for a user (paginated)
    */
   async findByUserId(userId, page = 1, limit = 20) {
     try {
       const skip = (page - 1) * limit;
-      
+
       const [withdrawals, total] = await Promise.all([
         Withdrawal.find({ userId })
           .sort({ createdAt: -1 })
@@ -124,7 +109,7 @@ class WithdrawalRepository {
           .lean(),
         Withdrawal.countDocuments({ userId })
       ]);
-      
+
       return {
         withdrawals,
         pagination: {
@@ -135,7 +120,7 @@ class WithdrawalRepository {
         }
       };
     } catch (error) {
-      logger.error('Error finding withdrawals by user ID', {
+      logger.error('Error finding user withdrawals', {
         userId,
         error: error.message
       });
@@ -144,53 +129,39 @@ class WithdrawalRepository {
   }
 
   /**
-   * Update withdrawal status
-   * 
-   * @param {string} withdrawalId - Withdrawal ID
-   * @param {string} status - New status
-   * @param {Object} additionalData - Additional fields to update
-   * @param {Object} session - MongoDB session for transactions
-   * @returns {Promise<Object>} Updated withdrawal document
+   * Updates withdrawal status
    */
   async updateStatus(withdrawalId, status, additionalData = {}, session = null) {
     try {
       const update = {
-        $set: {
-          status,
-          ...additionalData
-        }
+        $set: { status, ...additionalData }
       };
-      
-      const options = {
-        new: true,
-        runValidators: true
-      };
-      
-      if (session) {
-        options.session = session;
-      }
-      
+
+      const options = { new: true, runValidators: true };
+      if (session) options.session = session;
+
       const withdrawal = await Withdrawal.findByIdAndUpdate(
         withdrawalId,
         update,
         options
       );
-      
+
       if (!withdrawal) {
         throw new NotFoundError('Withdrawal');
       }
-      
-      logger.info('Withdrawal status updated', {
+
+      logger.info('Withdrawal updated', {
         withdrawalId,
         status
       });
-      
+
       return withdrawal;
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw error;
       }
-      logger.error('Error updating withdrawal status', {
+
+      logger.error('Error updating withdrawal', {
         withdrawalId,
         status,
         error: error.message
@@ -200,10 +171,7 @@ class WithdrawalRepository {
   }
 
   /**
-   * Find pending withdrawals
-   * 
-   * @param {number} limit - Maximum number of withdrawals to return
-   * @returns {Promise<Array>} Array of pending withdrawals
+   * Returns pending withdrawals (used by worker)
    */
   async findPending(limit = 100) {
     try {
@@ -221,17 +189,12 @@ class WithdrawalRepository {
   }
 
   /**
-   * Find withdrawals by status
-   * 
-   * @param {string} status - Withdrawal status
-   * @param {number} page - Page number
-   * @param {number} limit - Items per page
-   * @returns {Promise<Object>} Paginated withdrawals
+   * Returns withdrawals by status
    */
   async findByStatus(status, page = 1, limit = 20) {
     try {
       const skip = (page - 1) * limit;
-      
+
       const [withdrawals, total] = await Promise.all([
         Withdrawal.find({ status })
           .sort({ createdAt: -1 })
@@ -240,7 +203,7 @@ class WithdrawalRepository {
           .lean(),
         Withdrawal.countDocuments({ status })
       ]);
-      
+
       return {
         withdrawals,
         pagination: {
@@ -260,11 +223,7 @@ class WithdrawalRepository {
   }
 
   /**
-   * Delete withdrawal by ID
-   * For testing purposes only
-   * 
-   * @param {string} withdrawalId - Withdrawal ID
-   * @returns {Promise<void>}
+   * Deletes withdrawal (only for testing)
    */
   async delete(withdrawalId) {
     try {

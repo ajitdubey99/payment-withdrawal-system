@@ -1,10 +1,11 @@
 /**
  * Transaction Controller
  * 
- * HTTP request handler for transaction history endpoints.
+ * This controller handles all transaction related APIs.
+ * Mainly used for fetching transaction history and stats.
  * 
- * Usage:
- *   Routes use these controller methods to handle transaction requests
+ * Example:
+ *   Routes call these methods when user requests transaction data.
  */
 
 const TransactionService = require('../services/TransactionService');
@@ -15,49 +16,53 @@ const { formatErrorResponse } = require('../utils/errors');
 
 class TransactionController {
   /**
-   * Get transaction history
-   * GET /api/v1/transactions
-   * 
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
+   * Returns transaction history (bank statement)
+   * Endpoint: GET /api/v1/transactions
    */
   async getTransactionHistory(req, res) {
     try {
-      const validatedData = validateSchema(transactionHistorySchema, req.query);
-      
+      // Validate query parameters
+      const validatedData = validateSchema(
+        transactionHistorySchema,
+        req.query
+      );
+
+      // Fetch data from service layer
       const result = await TransactionService.getTransactionHistory(
         validatedData.userId,
         validatedData
       );
-      
+
+      // Send success response
       res.status(HTTP_STATUS.OK).json({
         success: true,
         data: result
       });
     } catch (error) {
+      // Log error for debugging
       logger.error('Error in getTransactionHistory controller', {
         error: error.message,
         query: req.query
       });
-      
+
+      // Send formatted error response
       const errorResponse = formatErrorResponse(error);
-      const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-      
+      const statusCode =
+        error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+
       res.status(statusCode).json(errorResponse);
     }
   }
 
   /**
-   * Get transaction statistics
-   * GET /api/v1/transactions/statistics
-   * 
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
+   * Returns transaction statistics for a user
+   * Endpoint: GET /api/v1/transactions/statistics
    */
   async getStatistics(req, res) {
     try {
       const { userId, startDate, endDate } = req.query;
-      
+
+      // userId is mandatory
       if (!userId) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
@@ -67,26 +72,31 @@ class TransactionController {
           }
         });
       }
-      
+
+      // Get stats from service layer
       const stats = await TransactionService.getStatistics(
         userId,
         startDate,
         endDate
       );
-      
+
+      // Send success response
       res.status(HTTP_STATUS.OK).json({
         success: true,
         data: stats
       });
     } catch (error) {
+      // Log error
       logger.error('Error in getStatistics controller', {
         error: error.message,
         query: req.query
       });
-      
+
+      // Send formatted error
       const errorResponse = formatErrorResponse(error);
-      const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-      
+      const statusCode =
+        error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+
       res.status(statusCode).json(errorResponse);
     }
   }

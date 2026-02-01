@@ -1,18 +1,11 @@
 /**
  * Wallet Model
  * 
- * Represents a user's wallet with balance management and concurrency control.
- * Uses optimistic locking via version field to prevent race conditions.
+ * This model stores user wallet information.
+ * It handles balance, currency, and versioning.
+ * Version is used to avoid race conditions.
  * 
- * Schema Fields:
- *   - userId: Reference to User document
- *   - balance: Current wallet balance (Decimal128 for precision)
- *   - currency: Currency code (INR, USD, etc.)
- *   - version: Version number for optimistic locking
- *   - createdAt: Timestamp of wallet creation
- *   - updatedAt: Timestamp of last update
- * 
- * Usage:
+ * Example:
  *   const Wallet = require('./models/Wallet');
  *   const wallet = await Wallet.findOne({ userId });
  */
@@ -21,33 +14,37 @@ const mongoose = require('mongoose');
 const { CURRENCY } = require('../constants');
 
 const walletSchema = new mongoose.Schema({
+  // User who owns this wallet
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'User ID is required'],
+    required: true,
     unique: true
   },
-  
+
+  // Current wallet balance
   balance: {
     type: mongoose.Schema.Types.Decimal128,
     required: true,
     default: 0,
     validate: {
-      validator: function(value) {
+      validator: function (value) {
         const numValue = parseFloat(value.toString());
         return numValue >= 0;
       },
       message: 'Balance cannot be negative'
     }
   },
-  
+
+  // Wallet currency
   currency: {
     type: String,
     enum: Object.values(CURRENCY),
     default: CURRENCY.INR,
     required: true
   },
-  
+
+  // Version used for optimistic locking
   version: {
     type: Number,
     default: 0,
@@ -58,14 +55,14 @@ const walletSchema = new mongoose.Schema({
   versionKey: false
 });
 
+// Indexes for faster queries
 walletSchema.index({ userId: 1 });
 walletSchema.index({ userId: 1, version: 1 });
 
 /**
- * Pre-save hook to increment version number
- * Ensures version is updated on every modification for optimistic locking
+ * Increase version when balance changes
  */
-walletSchema.pre('save', function(next) {
+walletSchema.pre('save', function (next) {
   if (this.isModified('balance')) {
     this.version += 1;
   }
@@ -73,33 +70,24 @@ walletSchema.pre('save', function(next) {
 });
 
 /**
- * Get balance as number
- * Converts Decimal128 to float for calculations
- * 
- * @returns {number} Balance as floating point number
+ * Returns balance as number
  */
-walletSchema.methods.getBalance = function() {
+walletSchema.methods.getBalance = function () {
   return parseFloat(this.balance.toString());
 };
 
 /**
- * Check if wallet has sufficient balance
- * 
- * @param {number} amount - Amount to check
- * @returns {boolean} True if balance is sufficient
+ * Checks if wallet has enough balance
  */
-walletSchema.methods.hasSufficientBalance = function(amount) {
+walletSchema.methods.hasSufficientBalance = function (amount) {
   return this.getBalance() >= amount;
 };
 
 /**
- * Deduct amount from wallet balance
- * Does not save, only modifies the document
- * 
- * @param {number} amount - Amount to deduct
- * @throws {Error} If insufficient balance
+ * Deducts amount from wallet
+ * Only updates object, does not save to DB
  */
-walletSchema.methods.deduct = function(amount) {
+walletSchema.methods.deduct = function (amount) {
   const currentBalance = this.getBalance();
   if (currentBalance < amount) {
     throw new Error('Insufficient balance');
@@ -108,22 +96,21 @@ walletSchema.methods.deduct = function(amount) {
 };
 
 /**
- * Add amount to wallet balance
- * Does not save, only modifies the document
- * 
- * @param {number} amount - Amount to add
+ * Adds amount to wallet
+ * Only updates object, does not save to DB
  */
-walletSchema.methods.credit = function(amount) {
+walletSchema.methods.credit = function (amount) {
   const currentBalance = this.getBalance();
   this.balance = (currentBalance + amount).toString();
 };
 
 /**
- * Transform wallet object for JSON response
- * Converts Decimal128 to number for API responses
+ * Custom JSON response
+ * Converts Decimal128 to normal number
  */
-walletSchema.methods.toJSON = function() {
+walletSchema.methods.toJSON = function () {
   const obj = this.toObject();
+
   return {
     id: obj._id,
     userId: obj.userId,

@@ -1,346 +1,136 @@
 # Payment Withdrawal System
 
 ## Overview
-A secure, scalable, and concurrency-safe payment withdrawal module built with Node.js, Express.js, and MongoDB. This system handles financial transactions with guaranteed data integrity, preventing race conditions, double spending, and ensuring atomic operations.
+
+This project is a secure and scalable Payment Withdrawal backend system built using Node.js and MongoDB.
+
+The main purpose of this system is to simulate how real-world payment applications handle withdrawals safely.  
+There is no frontend UI — the focus is purely on backend logic, data safety, and system design.
+
+This system ensures:
+- Users cannot withdraw more than their balance.
+- Concurrent requests do not cause double spending.
+- Every transaction is permanently logged for auditing.
+
+---
+
+## Core Idea
+
+Think of this system as a digital wallet engine.
+
+When a user tries to withdraw money:
+1. The system checks if the user exists and is active.
+2. It checks wallet balance.
+3. It ensures the request is not duplicated.
+4. It deducts money and creates logs in one atomic operation.
+5. If anything fails, everything is rolled back.
+
+Either everything succeeds, or nothing changes.
+
+---
 
 ## Architecture
 
-### Layered Architecture
-```
+Controller → Service → Repository → Database
+
+Each layer has one responsibility only.
+
+---
+
+## Project Structure
+
 src/
-├── config/          # Configuration management
-├── controllers/     # HTTP request handlers
-├── services/        # Business logic layer
-├── repositories/    # Data access layer
-├── models/          # Database schemas
-├── middleware/      # Express middleware
-├── validators/      # Input validation
-├── utils/           # Utility functions
-├── jobs/            # Background job processors
-└── constants/       # Application constants
-```
+config/          Environment and database config  
+controllers/     API request handlers  
+services/        Business logic  
+repositories/    Database operations  
+models/          Mongoose schemas  
+middleware/      Logging, rate limiting, error handling  
+validators/      Joi input validation  
+utils/           Logger, security helpers, custom errors  
 
-### Design Patterns
-- **Repository Pattern**: Abstracts data access logic
-- **Service Layer**: Contains business logic separate from controllers
-- **Dependency Injection**: Loose coupling between components
-- **Factory Pattern**: For creating transaction records
-- **Strategy Pattern**: For different payment processing strategies
+---
 
-## Key Features
+## Database Design
 
-### 1. Concurrency Control
-- **MongoDB Transactions**: ACID guarantees for multi-document operations
-- **Optimistic Locking**: Version-based concurrency control
-- **Distributed Locking**: Redis-based locks for critical sections
-- **Idempotency Keys**: Prevents duplicate request processing
+Collections:
+- users
+- wallets
+- withdrawals
+- transaction_logs
 
-### 2. Security Measures
-- **Input Validation**: Joi-based schema validation
-- **Query Injection Prevention**: Parameterized queries and sanitization
-- **Mass Assignment Protection**: Explicit field whitelisting
-- **Request Replay Prevention**: Idempotency key tracking
-- **Data Integrity**: Cryptographic hashing for tamper detection
+Important points:
+- Wallet uses Decimal128 for financial precision.
+- Transaction logs are immutable.
+- Indexes added for performance.
 
-### 3. Transaction Safety
-- **Atomic Operations**: All-or-nothing balance updates
-- **Immutable Audit Logs**: Insert-only transaction history
-- **Balance Validation**: Prevents negative balances
-- **State Machine**: Controlled withdrawal status transitions
-- **Retry Mechanisms**: Exponential backoff for failures
+---
 
-### 4. Scalability
-- **Horizontal Scaling**: Stateless API design
-- **Background Jobs**: Bull queue for async processing
-- **Database Indexing**: Optimized query performance
-- **Connection Pooling**: Efficient database connections
-- **Caching Ready**: Redis integration prepared
+## Concurrency Handling
 
-## Technical Decisions
+This system is designed to handle multiple simultaneous requests safely.
 
-### Why MongoDB Transactions?
-MongoDB 4.0+ supports multi-document ACID transactions. We use them for:
-- Atomic balance deduction + transaction record creation
-- Guaranteed consistency across wallet and withdrawal collections
-- Rollback capability on failures
+Techniques used:
+- MongoDB transactions
+- Optimistic locking using version field
+- Idempotency keys for duplicate prevention
 
-### Concurrency Strategy
-1. **Version Field**: Each wallet has a version number incremented on update
-2. **Optimistic Locking**: Detect concurrent modifications before commit
-3. **Idempotency Keys**: Client-provided unique request identifiers
-4. **Transaction Isolation**: MongoDB transactions provide snapshot isolation
+---
 
-### Security Approach
-1. **Input Sanitization**: All inputs validated against strict schemas
-2. **Whitelisting**: Only allowed fields accepted in requests
-3. **Integrity Hashing**: Transaction data hashed to detect tampering
-4. **Rate Limiting**: Prevents abuse and DoS attacks
-5. **Audit Trail**: Comprehensive logging for security analysis
+## Security
 
-## Database Schema
+Security layers:
+- Joi input validation
+- MongoDB injection protection
+- Data integrity hashing
+- Strict withdrawal status flow
 
-### Users Collection
-```javascript
-{
-  _id: ObjectId,
-  email: String (unique, indexed),
-  name: String,
-  status: String (active/suspended/blocked),
-  createdAt: Date,
-  updatedAt: Date
-}
-```
+---
 
-### Wallets Collection
-```javascript
-{
-  _id: ObjectId,
-  userId: ObjectId (unique, indexed),
-  balance: Decimal128,
-  currency: String,
-  version: Number,
-  createdAt: Date,
-  updatedAt: Date
-}
-```
+## Setup
 
-### Withdrawals Collection
-```javascript
-{
-  _id: ObjectId,
-  userId: ObjectId (indexed),
-  amount: Decimal128,
-  destination: Object,
-  status: String (pending/processing/success/failed),
-  idempotencyKey: String (unique, indexed),
-  integrityHash: String,
-  failureReason: String,
-  processedAt: Date,
-  createdAt: Date,
-  updatedAt: Date
-}
-```
+Prerequisites:
+- Node.js v18+
+- MongoDB v4.4+ (Replica set)
 
-### TransactionLogs Collection
-```javascript
-{
-  _id: ObjectId,
-  userId: ObjectId (indexed),
-  transactionType: String,
-  referenceId: ObjectId,
-  amount: Decimal128,
-  balanceBefore: Decimal128,
-  balanceAfter: Decimal128,
-  status: String,
-  metadata: Object,
-  timestamp: Date (indexed)
-}
-```
-
-## Installation
-
-### Prerequisites
-- Node.js >= 18.x
-- MongoDB >= 4.4 (for transaction support)
-- Redis >= 6.x (optional, for distributed locking)
-
-### Setup
-```bash
-# Clone the repository
-git clone <repository-url>
-cd payment-withdrawal-system
-
-# Install dependencies
+Installation:
 npm install
 
-# Copy environment variables
-cp .env.example .env
-
-# Edit .env with your configuration
-nano .env
-
-# Run database migrations/seeders
+Seed data:
 npm run db:seed
 
-# Start the application
+Start server:
 npm start
 
-# For development with auto-reload
-npm run dev
-```
+---
 
-## Environment Variables
-```
-NODE_ENV=development
-PORT=3000
+## API Example
 
-MONGODB_URI=mongodb://localhost:27017/payment_withdrawal
-MONGODB_MAX_POOL_SIZE=10
-
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-LOG_LEVEL=info
-
-WITHDRAWAL_MIN_AMOUNT=10
-WITHDRAWAL_MAX_AMOUNT=100000
-```
-
-## API Endpoints
-
-### 1. Create Withdrawal Request
-```
 POST /api/v1/withdrawals
-Content-Type: application/json
-X-Idempotency-Key: unique-request-id
 
+Headers:
+X-Idempotency-Key: unique-id
+
+Body:
 {
-  "userId": "user_id_here",
-  "amount": 1000.50,
+  "userId": "USER_ID",
+  "amount": 500,
   "destination": {
     "accountNumber": "1234567890",
-    "ifscCode": "ABCD0123456",
-    "accountHolderName": "John Doe"
+    "ifscCode": "SBIN0001234",
+    "accountHolderName": "Rahul Kumar"
   }
 }
 
-Response 201:
-{
-  "success": true,
-  "data": {
-    "withdrawalId": "...",
-    "status": "pending",
-    "amount": 1000.50,
-    "createdAt": "..."
-  }
-}
-```
+---
 
-### 2. Get Withdrawal Status
-```
-GET /api/v1/withdrawals/:withdrawalId
+## Error Handling
 
-Response 200:
-{
-  "success": true,
-  "data": {
-    "withdrawalId": "...",
-    "status": "success",
-    "amount": 1000.50,
-    "processedAt": "..."
-  }
-}
-```
+All errors use custom classes and return a consistent format.
 
-### 3. Get User Wallet
-```
-GET /api/v1/wallets/:userId
+---
 
-Response 200:
-{
-  "success": true,
-  "data": {
-    "userId": "...",
-    "balance": 5000.00,
-    "currency": "INR"
-  }
-}
-```
+## Conclusion
 
-### 4. Get Transaction History
-```
-GET /api/v1/transactions?userId=xxx&page=1&limit=20
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "transactions": [...],
-    "pagination": {
-      "page": 1,
-      "limit": 20,
-      "total": 100
-    }
-  }
-}
-```
-
-## Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run integration tests
-npm run test:integration
-
-# Run load tests
-npm run test:load
-```
-
-## Monitoring & Logging
-
-- **Winston Logger**: Structured logging with different levels
-- **Request Logging**: All API requests logged with correlation IDs
-- **Error Tracking**: Detailed error logs with stack traces
-- **Performance Metrics**: Response times and database query metrics
-
-## Production Deployment
-
-### Pre-deployment Checklist
-- [ ] Environment variables configured
-- [ ] Database indexes created
-- [ ] MongoDB replica set enabled (for transactions)
-- [ ] Redis configured for distributed locking
-- [ ] Log aggregation setup
-- [ ] Monitoring and alerting configured
-- [ ] Load balancer configured
-- [ ] Rate limiting enabled
-
-### Scaling Considerations
-1. **Horizontal Scaling**: Deploy multiple API instances behind load balancer
-2. **Database Sharding**: Shard by userId for large-scale operations
-3. **Read Replicas**: Use MongoDB read replicas for transaction history queries
-4. **Background Jobs**: Scale Bull queue workers independently
-5. **Caching**: Implement Redis caching for frequently accessed data
-
-## Security Hardening
-
-1. **Update Dependencies**: Regularly run `npm audit`
-2. **Environment Secrets**: Use secrets management (AWS Secrets Manager, Vault)
-3. **HTTPS Only**: Force SSL/TLS in production
-4. **Rate Limiting**: Implement aggressive rate limiting
-5. **IP Whitelisting**: For admin endpoints
-6. **Security Headers**: Use Helmet.js middleware
-7. **Input Sanitization**: Never trust client input
-
-## Known Limitations
-
-1. **Payment Gateway**: Currently mocked, requires integration with real provider
-2. **KYC Verification**: Assumes users are pre-verified
-3. **Currency Conversion**: Single currency support (extensible)
-4. **Webhook Handling**: Not implemented (for real gateway callbacks)
-
-## Future Enhancements
-
-- [ ] Multi-currency support
-- [ ] Scheduled withdrawals
-- [ ] Withdrawal limits (daily/monthly)
-- [ ] Fee calculation engine
-- [ ] Refund/reversal mechanisms
-- [ ] Real-time notifications
-- [ ] GraphQL API
-- [ ] Admin dashboard
-
-## Support
-
-For issues and questions:
-- Create an issue in the repository
-- Contact: support@example.com
-
-## License
-
-MIT License
+This project focuses on correctness, safety, and real-world backend design.
+It reflects how real fintech systems handle money operations.

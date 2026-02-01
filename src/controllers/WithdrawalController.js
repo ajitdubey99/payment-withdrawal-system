@@ -1,11 +1,8 @@
 /**
  * Withdrawal Controller
  * 
- * HTTP request handler for withdrawal endpoints.
- * Validates input and delegates to WithdrawalService.
- * 
- * Usage:
- *   Routes use these controller methods to handle requests
+ * This controller handles all withdrawal related APIs.
+ * It receives the request, validates data, and calls service methods.
  */
 
 const WithdrawalService = require('../services/WithdrawalService');
@@ -16,18 +13,20 @@ const { formatErrorResponse } = require('../utils/errors');
 
 class WithdrawalController {
   /**
-   * Create new withdrawal request
-   * POST /api/v1/withdrawals
-   * 
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
+   * Creates a new withdrawal request
+   * Endpoint: POST /api/v1/withdrawals
    */
   async createWithdrawal(req, res) {
     try {
-      const validatedData = validateSchema(createWithdrawalSchema, req.body);
-      
+      // Validate request body
+      const validatedData = validateSchema(
+        createWithdrawalSchema,
+        req.body
+      );
+
+      // Idempotency key is used to avoid duplicate requests
       const idempotencyKey = req.headers['x-idempotency-key'];
-      
+
       if (!idempotencyKey) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
@@ -37,21 +36,26 @@ class WithdrawalController {
           }
         });
       }
-      
+
+      // Create withdrawal entry
       const withdrawal = await WithdrawalService.createWithdrawal(
         validatedData,
         idempotencyKey
       );
-      
+
+      // Process withdrawal in background
       setImmediate(() => {
-        WithdrawalService.processWithdrawal(withdrawal._id).catch(error => {
+        WithdrawalService.processWithdrawal(
+          withdrawal._id
+        ).catch(error => {
           logger.error('Background withdrawal processing failed', {
             withdrawalId: withdrawal._id,
             error: error.message
           });
         });
       });
-      
+
+      // Send response to client
       res.status(HTTP_STATUS.CREATED).json({
         success: true,
         data: {
@@ -64,33 +68,39 @@ class WithdrawalController {
         }
       });
     } catch (error) {
+      // Log error
       logger.error('Error in createWithdrawal controller', {
         error: error.message,
         stack: error.stack
       });
-      
+
+      // Send formatted error
       const errorResponse = formatErrorResponse(error);
-      const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-      
+      const statusCode =
+        error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+
       res.status(statusCode).json(errorResponse);
     }
   }
 
   /**
-   * Get withdrawal by ID
-   * GET /api/v1/withdrawals/:withdrawalId
-   * 
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
+   * Returns single withdrawal by ID
+   * Endpoint: GET /api/v1/withdrawals/:withdrawalId
    */
   async getWithdrawal(req, res) {
     try {
-      const validatedData = validateSchema(getWithdrawalSchema, req.params);
-      
+      // Validate route params
+      const validatedData = validateSchema(
+        getWithdrawalSchema,
+        req.params
+      );
+
+      // Fetch withdrawal from service
       const withdrawal = await WithdrawalService.getWithdrawal(
         validatedData.withdrawalId
       );
-      
+
+      // Send response
       res.status(HTTP_STATUS.OK).json({
         success: true,
         data: {
@@ -106,46 +116,55 @@ class WithdrawalController {
         }
       });
     } catch (error) {
+      // Log error
       logger.error('Error in getWithdrawal controller', {
         error: error.message,
         withdrawalId: req.params.withdrawalId
       });
-      
+
+      // Send formatted error
       const errorResponse = formatErrorResponse(error);
-      const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-      
+      const statusCode =
+        error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+
       res.status(statusCode).json(errorResponse);
     }
   }
 
   /**
-   * Get user withdrawals
-   * GET /api/v1/withdrawals/user/:userId
-   * 
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
+   * Returns all withdrawals for a user
+   * Endpoint: GET /api/v1/withdrawals/user/:userId
    */
   async getUserWithdrawals(req, res) {
     try {
       const { userId } = req.params;
       const page = parseInt(req.query.page, 10) || 1;
       const limit = parseInt(req.query.limit, 10) || 20;
-      
-      const result = await WithdrawalService.getUserWithdrawals(userId, page, limit);
-      
+
+      // Fetch paginated withdrawals
+      const result = await WithdrawalService.getUserWithdrawals(
+        userId,
+        page,
+        limit
+      );
+
+      // Send response
       res.status(HTTP_STATUS.OK).json({
         success: true,
         data: result
       });
     } catch (error) {
+      // Log error
       logger.error('Error in getUserWithdrawals controller', {
         error: error.message,
         userId: req.params.userId
       });
-      
+
+      // Send formatted error
       const errorResponse = formatErrorResponse(error);
-      const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-      
+      const statusCode =
+        error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+
       res.status(statusCode).json(errorResponse);
     }
   }

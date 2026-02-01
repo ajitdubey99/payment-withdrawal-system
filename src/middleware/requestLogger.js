@@ -1,9 +1,10 @@
 /**
  * Request Logger Middleware
  * 
- * Logs all HTTP requests with correlation IDs for tracing.
+ * This middleware logs every incoming request.
+ * It also adds a unique ID so logs can be traced easily.
  * 
- * Usage:
+ * Example:
  *   app.use(requestLogger);
  */
 
@@ -11,31 +12,30 @@ const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
 
 /**
- * Request logging middleware
- * Adds correlation ID and logs request/response details
- * 
- * @param {Object} req - Express request
- * @param {Object} res - Express response
- * @param {Function} next - Express next function
+ * Logs request and response details
  */
 function requestLogger(req, res, next) {
-  const correlationId = req.headers['x-correlation-id'] || uuidv4();
-  
+  // Use existing correlation ID or generate new one
+  const correlationId =
+    req.headers['x-correlation-id'] || uuidv4();
+
   req.correlationId = correlationId;
   res.setHeader('X-Correlation-ID', correlationId);
-  
+
   const startTime = Date.now();
-  
+
+  // Capture response body
   const originalSend = res.send;
-  res.send = function(data) {
+  res.send = function (data) {
     res.send = originalSend;
     res.locals.responseBody = data;
     return res.send(data);
   };
-  
+
+  // Log after response is finished
   res.on('finish', () => {
     const duration = Date.now() - startTime;
-    
+
     const logData = {
       correlationId,
       method: req.method,
@@ -46,14 +46,15 @@ function requestLogger(req, res, next) {
       ip: req.ip,
       userAgent: req.get('user-agent')
     };
-    
+
     if (res.statusCode >= 400) {
       logger.warn('Request completed with error', logData);
     } else {
       logger.info('Request completed', logData);
     }
   });
-  
+
+  // Log when request comes in
   logger.info('Incoming request', {
     correlationId,
     method: req.method,
@@ -61,7 +62,7 @@ function requestLogger(req, res, next) {
     query: req.query,
     ip: req.ip
   });
-  
+
   next();
 }
 

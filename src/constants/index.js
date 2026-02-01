@@ -1,36 +1,36 @@
 /**
- * Application Constants
+ * App Constants
  * 
- * Centralized constant values used throughout the application.
- * Provides type safety and single source of truth for enums and fixed values.
+ * This file keeps all fixed values in one place.
+ * It helps avoid hard-coded strings and magic numbers.
  * 
- * Usage:
- *   const { USER_STATUS, WITHDRAWAL_STATUS } = require('./constants');
+ * Example:
+ *   const { USER_STATUS } = require('./constants');
  *   if (user.status === USER_STATUS.ACTIVE) { ... }
  */
 
 /**
- * User account status values
+ * Different states of a user account
  */
 const USER_STATUS = {
-  ACTIVE: 'active',
-  SUSPENDED: 'suspended',
-  BLOCKED: 'blocked'
+  ACTIVE: 'active',        // User can use the system
+  SUSPENDED: 'suspended',  // User is temporarily disabled
+  BLOCKED: 'blocked'       // User is permanently blocked
 };
 
 /**
- * Withdrawal request status values
- * Follows state machine: pending -> processing -> success/failed
+ * Status flow for withdrawal requests
+ * pending -> processing -> success / failed
  */
 const WITHDRAWAL_STATUS = {
-  PENDING: 'pending',
-  PROCESSING: 'processing',
-  SUCCESS: 'success',
-  FAILED: 'failed'
+  PENDING: 'pending',        // Request created
+  PROCESSING: 'processing',  // Being processed
+  SUCCESS: 'success',        // Completed successfully
+  FAILED: 'failed'           // Failed due to error
 };
 
 /**
- * Transaction types for audit logging
+ * Types of transactions used in logs
  */
 const TRANSACTION_TYPE = {
   WITHDRAWAL: 'withdrawal',
@@ -40,17 +40,17 @@ const TRANSACTION_TYPE = {
 };
 
 /**
- * Transaction log status values
+ * Status of a transaction entry
  */
 const TRANSACTION_STATUS = {
-  INITIATED: 'initiated',
-  COMPLETED: 'completed',
-  FAILED: 'failed',
-  REVERSED: 'reversed'
+  INITIATED: 'initiated',  // Started
+  COMPLETED: 'completed',  // Done
+  FAILED: 'failed',        // Failed
+  REVERSED: 'reversed'     // Rolled back
 };
 
 /**
- * Supported currency codes
+ * Supported currencies
  */
 const CURRENCY = {
   INR: 'INR',
@@ -59,7 +59,8 @@ const CURRENCY = {
 };
 
 /**
- * Error codes for API responses
+ * Common error codes used in API responses
+ * These are sent to frontend for better error handling
  */
 const ERROR_CODES = {
   VALIDATION_ERROR: 'VALIDATION_ERROR',
@@ -78,7 +79,7 @@ const ERROR_CODES = {
 };
 
 /**
- * HTTP status codes
+ * HTTP status codes used in responses
  */
 const HTTP_STATUS = {
   OK: 200,
@@ -95,22 +96,12 @@ const HTTP_STATUS = {
 };
 
 /**
- * Decimal precision for monetary values
- */
-const DECIMAL_PRECISION = 2;
-
-/**
- * Maximum retry attempts for failed operations
- */
-const MAX_RETRY_ATTEMPTS = 3;
-
-/**
- * Default pagination values
+ * Default values for pagination
  */
 const PAGINATION = {
-  DEFAULT_PAGE: 1,
-  DEFAULT_LIMIT: 20,
-  MAX_LIMIT: 100
+  DEFAULT_PAGE: 1,    // First page
+  DEFAULT_LIMIT: 20,  // Items per page
+  MAX_LIMIT: 100     // Maximum allowed limit
 };
 
 module.exports = {
@@ -121,7 +112,5 @@ module.exports = {
   CURRENCY,
   ERROR_CODES,
   HTTP_STATUS,
-  DECIMAL_PRECISION,
-  MAX_RETRY_ATTEMPTS,
   PAGINATION
 };

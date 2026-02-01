@@ -1,10 +1,10 @@
 /**
  * Transaction Service
  * 
- * Business logic layer for transaction operations.
- * Provides transaction history and analytics.
+ * This service works like a bank statement system.
+ * It fetches past transactions for a user.
  * 
- * Usage:
+ * Example:
  *   const TransactionService = require('./services/TransactionService');
  *   const history = await TransactionService.getTransactionHistory(userId);
  */
@@ -15,26 +15,27 @@ const logger = require('../utils/logger');
 
 class TransactionService {
   /**
-   * Get transaction history for user
-   * 
-   * @param {string} userId - User ID
-   * @param {Object} options - Query options
-   * @returns {Promise<Object>} Paginated transaction history
+   * Returns transaction history for a user
    */
   async getTransactionHistory(userId, options = {}) {
     try {
+      // Check if user exists
       await UserRepository.findById(userId);
-      
-      const result = await TransactionLogRepository.findByUserId(userId, options);
-      
-      logger.info('Transaction history retrieved', {
+
+      // Get logs from repository
+      const result = await TransactionLogRepository.findByUserId(
+        userId,
+        options
+      );
+
+      logger.info('Transaction history fetched', {
         userId,
         count: result.transactions.length
       });
-      
+
       return result;
     } catch (error) {
-      logger.error('Error getting transaction history', {
+      logger.error('Error fetching transaction history', {
         userId,
         error: error.message
       });
@@ -43,28 +44,24 @@ class TransactionService {
   }
 
   /**
-   * Get transaction statistics for user
-   * 
-   * @param {string} userId - User ID
-   * @param {Date} startDate - Start date
-   * @param {Date} endDate - End date
-   * @returns {Promise<Object>} Transaction statistics
+   * Returns transaction summary for a user
    */
   async getStatistics(userId, startDate = null, endDate = null) {
     try {
+      // Check if user exists
       await UserRepository.findById(userId);
-      
+
       const stats = await TransactionLogRepository.getStatistics(
         userId,
         startDate,
         endDate
       );
-      
-      logger.info('Transaction statistics retrieved', { userId });
-      
+
+      logger.info('Transaction statistics fetched', { userId });
+
       return stats;
     } catch (error) {
-      logger.error('Error getting transaction statistics', {
+      logger.error('Error fetching transaction statistics', {
         userId,
         error: error.message
       });
@@ -73,23 +70,21 @@ class TransactionService {
   }
 
   /**
-   * Get transactions by reference ID
-   * 
-   * @param {string} referenceId - Reference ID (withdrawal ID, etc.)
-   * @returns {Promise<Array>} Array of transaction logs
+   * Returns transactions by reference ID
    */
   async getByReferenceId(referenceId) {
     try {
-      const transactions = await TransactionLogRepository.findByReferenceId(referenceId);
-      
-      logger.info('Transactions by reference retrieved', {
+      const transactions =
+        await TransactionLogRepository.findByReferenceId(referenceId);
+
+      logger.info('Transactions by reference fetched', {
         referenceId,
         count: transactions.length
       });
-      
+
       return transactions;
     } catch (error) {
-      logger.error('Error getting transactions by reference', {
+      logger.error('Error fetching by reference', {
         referenceId,
         error: error.message
       });

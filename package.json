@@ -11,8 +11,7 @@
     "test:integration": "jest --testMatch='**/*.integration.test.js'",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
-    "db:seed": "node src/scripts/seed.js",
-    "db:migrate": "node src/scripts/migrate.js"
+    "db:seed": "node src/scripts/seed.js"
   },
   "keywords": [
     "payment",

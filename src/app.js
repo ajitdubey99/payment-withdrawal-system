@@ -1,9 +1,10 @@
 /**
  * Express Application Setup
  * 
- * Configures Express application with middleware and routes.
+ * This file creates and configures the Express app.
+ * All middleware and routes are registered here.
  * 
- * Usage:
+ * Example:
  *   const app = require('./app');
  */
 
@@ -20,29 +21,37 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
+// Security headers
 app.use(helmet());
 
+// Enable CORS
 app.use(cors({
   origin: config.isProduction() ? [] : '*',
   credentials: true
 }));
 
+// Compress responses
 app.use(compression());
 
+// Parse JSON and form data
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-app.use(mongoSanitize({
-  replaceWith: '_',
-  onSanitize: ({ key }) => {
-    console.warn(`Sanitized field: ${key}`);
-  }
+app.use(express.urlencoded({
+  extended: true,
+  limit: '10mb'
 }));
 
+// Prevent MongoDB injection
+app.use(mongoSanitize({
+  replaceWith: '_'
+}));
+
+// Log all requests
 app.use(requestLogger);
 
+// Apply rate limiting
 app.use(`/api/${config.apiVersion}`, apiLimiter);
 
+// Root health endpoint
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -52,10 +61,13 @@ app.get('/', (req, res) => {
   });
 });
 
+// API routes
 app.use(`/api/${config.apiVersion}`, routes);
 
+// 404 handler
 app.use(notFoundHandler);
 
+// Global error handler
 app.use(errorHandler);
 
 module.exports = app;

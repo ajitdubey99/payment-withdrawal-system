@@ -1,10 +1,10 @@
 /**
- * Database Connection Manager
+ * Database Manager
  * 
- * Handles MongoDB connection lifecycle including connection, disconnection,
- * and connection event handling.
+ * This file is responsible for connecting and disconnecting MongoDB.
+ * It also listens to database events like connect, disconnect, and errors.
  * 
- * Usage:
+ * Example:
  *   const database = require('./config/database');
  *   await database.connect();
  */
@@ -15,22 +15,27 @@ const logger = require('../utils/logger');
 
 class Database {
   constructor() {
+    // Stores the active database connection
     this.connection = null;
   }
 
   /**
-   * Establishes connection to MongoDB database
-   * Sets up event listeners for connection monitoring
-   * 
-   * @returns {Promise<void>}
-   * @throws {Error} If connection fails
+   * Connects the application to MongoDB.
+   * It uses the connection details from config file.
+   * If connection fails, it throws an error.
    */
   async connect() {
     try {
+      // Disable strict mode for queries
       mongoose.set('strictQuery', false);
 
-      this.connection = await mongoose.connect(config.mongodb.uri, config.mongodb.options);
+      // Create connection with MongoDB
+      this.connection = await mongoose.connect(
+        config.mongodb.uri,
+        config.mongodb.options
+      );
 
+      // Setup listeners for connection events
       this.setupEventListeners();
 
       logger.info('MongoDB connected successfully', {
@@ -44,10 +49,8 @@ class Database {
   }
 
   /**
-   * Sets up MongoDB connection event listeners
-   * Monitors connection state changes and errors
-   * 
-   * @private
+   * Listens to MongoDB connection events.
+   * Helps in logging when DB connects, disconnects, or throws errors.
    */
   setupEventListeners() {
     mongoose.connection.on('connected', () => {
@@ -62,6 +65,7 @@ class Database {
       logger.warn('Mongoose disconnected from MongoDB');
     });
 
+    // Close DB connection when app is stopped (Ctrl + C)
     process.on('SIGINT', async () => {
       await this.disconnect();
       process.exit(0);
@@ -69,34 +73,31 @@ class Database {
   }
 
   /**
-   * Gracefully closes MongoDB connection
-   * Should be called during application shutdown
-   * 
-   * @returns {Promise<void>}
+   * Closes the MongoDB connection safely.
+   * This should be called when the app is shutting down.
    */
   async disconnect() {
     try {
       await mongoose.connection.close();
-      logger.info('MongoDB connection closed through app termination');
+      logger.info('MongoDB connection closed successfully');
     } catch (error) {
-      logger.error('Error closing MongoDB connection', { error: error.message });
+      logger.error('Error while closing MongoDB connection', {
+        error: error.message
+      });
       throw error;
     }
   }
 
   /**
-   * Gets the current mongoose connection instance
-   * 
-   * @returns {mongoose.Connection} Mongoose connection object
+   * Returns the current database connection.
    */
   getConnection() {
     return mongoose.connection;
   }
 
   /**
-   * Checks if database is connected
-   * 
-   * @returns {boolean} True if connected
+   * Checks whether MongoDB is connected or not.
+   * Returns true if connected, otherwise false.
    */
   isConnected() {
     return mongoose.connection.readyState === 1;

@@ -1,9 +1,10 @@
 /**
  * Routes Index
  * 
- * Central router combining all route modules.
+ * This file combines all route modules.
+ * It acts as the main entry point for all APIs.
  * 
- * Usage:
+ * Example:
  *   app.use('/api/v1', routes);
  */
 
@@ -14,10 +15,16 @@ const transactionRoutes = require('./transactions');
 
 const router = express.Router();
 
+// Withdrawal related APIs
 router.use('/withdrawals', withdrawalRoutes);
+
+// Wallet related APIs
 router.use('/wallets', walletRoutes);
+
+// Transaction related APIs
 router.use('/transactions', transactionRoutes);
 
+// Simple health check endpoint
 router.get('/health', (req, res) => {
   res.status(200).json({
     success: true,

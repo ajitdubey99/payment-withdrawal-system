@@ -1,16 +1,10 @@
 /**
  * User Model
  * 
- * Represents a user in the system with authentication and status information.
+ * This model represents a user in the system.
+ * It stores basic user info and account status.
  * 
- * Schema Fields:
- *   - email: Unique user email address
- *   - name: User's full name
- *   - status: Account status (active/suspended/blocked)
- *   - createdAt: Timestamp of account creation
- *   - updatedAt: Timestamp of last update
- * 
- * Usage:
+ * Example:
  *   const User = require('./models/User');
  *   const user = await User.findOne({ email: 'user@example.com' });
  */
@@ -19,23 +13,26 @@ const mongoose = require('mongoose');
 const { USER_STATUS } = require('../constants');
 
 const userSchema = new mongoose.Schema({
+  // User email (must be unique)
   email: {
     type: String,
-    required: [true, 'Email is required'],
+    required: true,
     unique: true,
     lowercase: true,
     trim: true,
     match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address']
   },
-  
+
+  // User full name
   name: {
     type: String,
-    required: [true, 'Name is required'],
+    required: true,
     trim: true,
-    minlength: [2, 'Name must be at least 2 characters long'],
-    maxlength: [100, 'Name cannot exceed 100 characters']
+    minlength: 2,
+    maxlength: 100
   },
-  
+
+  // Account status
   status: {
     type: String,
     enum: Object.values(USER_STATUS),
@@ -47,39 +44,38 @@ const userSchema = new mongoose.Schema({
   versionKey: false
 });
 
+// Indexes for faster search
 userSchema.index({ email: 1 });
 userSchema.index({ status: 1 });
 
 /**
- * Check if user is active
- * @returns {boolean} True if user status is active
+ * Returns true if user is active
  */
-userSchema.methods.isActive = function() {
+userSchema.methods.isActive = function () {
   return this.status === USER_STATUS.ACTIVE;
 };
 
 /**
- * Check if user is suspended
- * @returns {boolean} True if user status is suspended
+ * Returns true if user is suspended
  */
-userSchema.methods.isSuspended = function() {
+userSchema.methods.isSuspended = function () {
   return this.status === USER_STATUS.SUSPENDED;
 };
 
 /**
- * Check if user is blocked
- * @returns {boolean} True if user status is blocked
+ * Returns true if user is blocked
  */
-userSchema.methods.isBlocked = function() {
+userSchema.methods.isBlocked = function () {
   return this.status === USER_STATUS.BLOCKED;
 };
 
 /**
- * Transform user object for JSON response
- * Removes sensitive fields and formats output
+ * Custom JSON response
+ * Hides internal fields
  */
-userSchema.methods.toJSON = function() {
+userSchema.methods.toJSON = function () {
   const obj = this.toObject();
+
   return {
     id: obj._id,
     email: obj.email,

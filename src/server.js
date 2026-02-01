@@ -1,9 +1,10 @@
 /**
  * Server Entry Point
  * 
- * Starts the HTTP server and initializes database connection.
+ * This file starts the application.
+ * It connects to the database and then starts listening for requests.
  * 
- * Usage:
+ * Run using:
  *   node src/server.js
  */
 
@@ -15,61 +16,72 @@ const logger = require('./utils/logger');
 let server;
 
 /**
- * Start the server
- * Connects to database and starts listening for requests
+ * Starts the server
  */
 async function startServer() {
   try {
+    // Connect to MongoDB
     await database.connect();
-    logger.info('Database connected successfully');
-    
+    logger.info('Database connected');
+
+    // Start HTTP server
     server = app.listen(config.port, () => {
-      logger.info(`Server started successfully`, {
+      logger.info('Server running', {
         port: config.port,
-        environment: config.env,
-        nodeVersion: process.version
+        env: config.env,
+        node: process.version
       });
-      
-      logger.info(`API available at http://localhost:${config.port}/api/${config.apiVersion}`);
+
+      logger.info(
+        `API: http://localhost:${config.port}/api/${config.apiVersion}`
+      );
     });
-    
+
+    // Handle server-level errors
     server.on('error', (error) => {
       if (error.code === 'EADDRINUSE') {
-        logger.error(`Port ${config.port} is already in use`);
+        logger.error(`Port ${config.port} already in use`);
       } else {
-        logger.error('Server error', { error: error.message });
+        logger.error('Server error', {
+          error: error.message
+        });
       }
       process.exit(1);
     });
   } catch (error) {
-    logger.error('Failed to start server', { error: error.message });
+    logger.error('Server startup failed', {
+      error: error.message
+    });
     process.exit(1);
   }
 }
 
 /**
- * Graceful shutdown handler
- * Closes server and database connections cleanly
+ * Graceful shutdown
+ * Closes server and DB safely
  */
 async function gracefulShutdown(signal) {
-  logger.info(`${signal} received, starting graceful shutdown`);
-  
+  logger.info(`${signal} received. Shutting down...`);
+
   if (server) {
     server.close(async () => {
       logger.info('HTTP server closed');
-      
+
       try {
         await database.disconnect();
-        logger.info('Database connection closed');
+        logger.info('Database closed');
         process.exit(0);
       } catch (error) {
-        logger.error('Error during shutdown', { error: error.message });
+        logger.error('Shutdown error', {
+          error: error.message
+        });
         process.exit(1);
       }
     });
-    
+
+    // Force exit if not closed in time
     setTimeout(() => {
-      logger.error('Forced shutdown after timeout');
+      logger.error('Force shutdown');
       process.exit(1);
     }, 10000);
   } else {
@@ -77,25 +89,26 @@ async function gracefulShutdown(signal) {
   }
 }
 
+// System signals
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
+// Catch crashes
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception', {
+  logger.error('Uncaught exception', {
     error: error.message,
     stack: error.stack
   });
   gracefulShutdown('uncaughtException');
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection', {
-    reason: reason,
-    promise: promise
-  });
+// Catch promise errors
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled rejection', { reason });
   gracefulShutdown('unhandledRejection');
 });
 
+// Start server
 startServer();
 
 module.exports = { server };
